@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confidence Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        video, canvas {
+            width: 80vw; 
+            height: 60vh;
+            border: 2px solid black;
+        }
+        .confidence {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <video id="input_video" autoplay muted playsinline style="display:none;"></video>
+    <canvas id="output_canvas"></canvas>
+    <div class="confidence">Confidence: <span id="confidence_score">0%</span></div>
+
+    <script>
+        const videoElement = document.getElementById('input_video');
+        const canvasElement = document.getElementById('output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const confidenceScoreElement = document.getElementById('confidence_score');
+
+        let totalConfidence = 0;
+        let frameCount = 0;
+        let lastFacePosition = null;
+
+        // Facial and hand landmark indices
+        const LEFT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
+        const RIGHT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
+        const MOUTH_INDICES = [78, 95, 191, 81, 13, 311, 308, 415, 402, 318];
+        const LEFT_EYEBROW_INDICES = [70, 63, 105, 66, 107];
+        const RIGHT_EYEBROW_INDICES = [336, 296, 334, 293, 300];
+        const FOREHEAD_INDICES = [10];  // A landmark around the forehead area
+
+        // Function to detect facial features and calculate confidence
+        function onFaceMeshResults(results) {
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiFaceLandmarks) {
+                for (const landmarks of results.multiFaceLandmarks) {
+                    // Draw face landmarks
+                    drawLandmarks(landmarks, 'blue');
+                    
+                    // Feature analysis
+                    let blinkConfidence = analyzeBlinkConfidence(landmarks);
+                    let gazeConfidence = analyzeGazeConfidence(landmarks);
+                    let eyebrowConfidence = analyzeEyebrowConfidence(landmarks);
+                    let lipConfidence = analyzeLipConfidence(landmarks);
+                    let foreheadConfidence = analyzeForeheadConfidence(landmarks);
+                    let movementConfidence = analyzeMovementConfidence(landmarks);
+                    let smileConfidence = analyzeSmileConfidence(landmarks);
+
+                    // Calculate total confidence for this frame
+                    let frameConfidence = (blinkConfidence + gazeConfidence + eyebrowConfidence + lipConfidence + foreheadConfidence + movementConfidence + smileConfidence) / 7;
+                    totalConfidence += frameConfidence;
+                    frameCount++;
+
+                    // Update the displayed confidence score
+                    confidenceScoreElement.innerText = ((totalConfidence / frameCount) * 100).toFixed(2) + '%';
+
+                    // Log factor data to the console
+                    console.log('Blink Confidence:', blinkConfidence);
+                    console.log('Gaze Confidence:', gazeConfidence);
+                    console.log('Eyebrow Confidence:', eyebrowConfidence);
+                    console.log('Lip Confidence:', lipConfidence);
+                    console.log('Forehead Confidence:', foreheadConfidence);
+                    console.log('Movement Confidence:', movementConfidence);
+                    console.log('Smile Confidence:', smileConfidence);
+                    console.log('Frame Confidence:', frameConfidence);
+                }
+            }
+        }
+
+        // Function to handle Hand landmarks and add to confidence
+        function onHandsResults(results) {
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    drawLandmarks(landmarks, 'red');
+                }
+            }
+        }
+
+        // Blink Confidence: Based on eye blink rate
+        function analyzeBlinkConfidence(landmarks) {
+            const leftEyeBlinkRatio = calculateDistance(landmarks, 160, 144) / calculateDistance(landmarks, 33, 133);
+            const rightEyeBlinkRatio = calculateDistance(landmarks, 385, 380) / calculateDistance(landmarks, 362, 263);
+            const avgBlinkRatio = (leftEyeBlinkRatio + rightEyeBlinkRatio) / 2;
+            // If the eyes are consistently open, confidence is higher
+            if (avgBlinkRatio > 0.2) return 1; // High confidence
+            else return 0.5; // Normal
+        }
+
+        // Gaze Confidence: Stable gaze indicates confidence
+        function analyzeGazeConfidence(landmarks) {
+            const leftEyeCenter = getCenterOfLandmarks(landmarks, LEFT_EYE_INDICES);
+            const rightEyeCenter = getCenterOfLandmarks(landmarks, RIGHT_EYE_INDICES);
+            const gazeDirection = Math.abs(leftEyeCenter.x - rightEyeCenter.x);
+            // Less deviation in gaze increases confidence
+            if (gazeDirection < 0.01) return 1; // High confidence
+            else return 0.6; // Normal
+        }
+
+        // Eyebrow Confidence: Raised eyebrows can indicate tension
+        function analyzeEyebrowConfidence(landmarks) {
+            const leftEyebrow = getCenterOfLandmarks(landmarks, LEFT_EYEBROW_INDICES);
+            const rightEyebrow = getCenterOfLandmarks(landmarks, RIGHT_EYEBROW_INDICES);
+            const avgEyebrowPosition = (leftEyebrow.y + rightEyebrow.y) / 2;
+            // Lower eyebrow movement indicates calmness
+            if (avgEyebrowPosition > 0.3) return 1; // High confidence
+            else return 0.5; // Lower confidence
+        }
+
+        // Lip Movement: Less lip movement indicates calmness
+        function analyzeLipConfidence(landmarks) {
+            const lipDistance = calculateDistance(landmarks, 13, 14);
+            // Less lip movement = higher confidence
+            if (lipDistance < 0.02) return 1;
+            else return 0.6;
+        }
+
+        // Forehead Movement: Less forehead tension indicates calmness
+        function analyzeForeheadConfidence(landmarks) {
+            const foreheadPosition = landmarks[FOREHEAD_INDICES[0]];
+            if (foreheadPosition.y < 0.3) return 1;
+            else return 0.5;
+        }
+
+        // Face Movement: Detects rapid head movements
+        function analyzeMovementConfidence(landmarks) {
+            if (lastFacePosition) {
+                const currentPosition = getCenterOfLandmarks(landmarks, LEFT_EYE_INDICES.concat(RIGHT_EYE_INDICES));
+                const dx = currentPosition.x - lastFacePosition.x;
+                const dy = currentPosition.y - lastFacePosition.y;
+                const movement = Math.sqrt(dx * dx + dy * dy);
+                
+                // Threshold for movement to determine confidence
+                const movementThreshold = 0.05;
+                if (movement < movementThreshold) return 1; // High confidence
+                else return 0.4; // Low confidence
+            }
+            // Set initial position
+            lastFacePosition = getCenterOfLandmarks(landmarks, LEFT_EYE_INDICES.concat(RIGHT_EYE_INDICES));
+            return 1; // Default high confidence for the first frame
+        }
+
+        // Smile Confidence: Detects if the person is smiling
+        function analyzeSmileConfidence(landmarks) {
+        const mouthWidth = calculateDistance(landmarks, 78, 95); // Corner of the mouth to the other side
+        const mouthHeight = calculateDistance(landmarks, 13, 81); // Top to bottom of the mouth
+        const mouthAspectRatio = mouthWidth / mouthHeight;
+        const smileThreshold = 1.5; // Adjust based on experimentation
+
+        // If the mouth aspect ratio indicates a smile, return high confidence
+        if (mouthAspectRatio > smileThreshold) {
+        return 1; // High confidence
+        } else {
+        return 0.6; // Lower confidence
+    }
+}
+
+        // Utility function to calculate distance between two landmarks
+        function calculateDistance(landmarks, index1, index2) {
+            const dx = landmarks[index1].x - landmarks[index2].x;
+            const dy = landmarks[index1].y - landmarks[index2].y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // Utility function to calculate center of a set of landmarks
+        function getCenterOfLandmarks(landmarks, indices) {
+            let x = 0, y = 0;
+            indices.forEach(index => {
+                x += landmarks[index].x;
+                y += landmarks[index].y;
+            });
+            return {x: (x / indices.length).toFixed(4), y: (y / indices.length).toFixed(4)};
+        }
+
+        // Function to draw landmarks on the canvas
+        function drawLandmarks(landmarks, color) {
+            canvasCtx.beginPath();
+            canvasCtx.strokeStyle = color;
+            canvasCtx.lineWidth = 1;
+            for (let i = 0; i < landmarks.length; i++) {
+                const x = landmarks[i].x * canvasElement.width;
+                const y = landmarks[i].y * canvasElement.height;
+                canvasCtx.moveTo(x, y);
+                canvasCtx.arc(x, y, 1, 0, 2 * Math.PI);
+            }
+            canvasCtx.stroke();
+        }
+
+        // Initialize Face Mesh
+        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+        faceMesh.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        faceMesh.onResults(onFaceMeshResults);
+
+        // Initialize Hands
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+        hands.setOptions({
+            maxNumHands: 2,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        hands.onResults(onHandsResults);
+
+        // Initialize the webcam
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await faceMesh.send({image: videoElement});
+                await hands.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
+        camera.start();
+    </script>
+</body>
+</html>
