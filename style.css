@@ -28,3 +28,41 @@ video, canvas {
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
+
+button {
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin: 10px;
+}
+#startButton {
+    background-color: #4CAF50; /* Green */
+    color: white;
+}
+#startButton:hover {
+    background-color: #45a049; /* Darker Green */
+}
+#stopButton {
+    background-color: #f44336; /* Red */
+    color: white;
+}
+#stopButton:hover {
+    background-color: #e53935; /* Darker Red */
+}
+#stopButton:disabled {
+    background-color: #ccc; /* Gray for disabled */
+    cursor: not-allowed;
+}
+#averageButton {
+    background-color: #3f51b5; /* Blue */
+    color: white;
+}
+#averageButton:hover {
+    background-color: #3949ab; /* Darker Blue */
+}
+#averageButton:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}

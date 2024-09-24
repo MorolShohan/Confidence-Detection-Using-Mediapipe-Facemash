@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confidence Detection</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        video, canvas {
+            width: 80vw;
+            height: 60vh;
+            border: 2px solid black;
+            margin-top: 20px;
+        }
+        .confidence {
+            font-size: 20px;
+            margin-top: 20px;
+        }
+        /* Button Styles */
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        #startButton {
+            background-color: #4CAF50; /* Green */
+            color: white;
+        }
+        #startButton:hover {
+            background-color: #45a049; /* Darker Green */
+        }
+        #stopButton {
+            background-color: #f44336; /* Red */
+            color: white;
+        }
+        #stopButton:hover {
+            background-color: #e53935; /* Darker Red */
+        }
+        #stopButton:disabled {
+            background-color: #ccc; /* Gray for disabled */
+            cursor: not-allowed;
+        }
+        
+    </style>
+</head>
+<body>
+    <video id="input_video" autoplay muted playsinline style="display:none;"></video>
+    <canvas id="output_canvas"></canvas>
+    <div class="confidence">Confidence: <span id="confidence_score">0%</span></div>
+    <button id="startButton">Start</button>
+    <button id="stopButton" disabled>Stop</button>
+    <button id="averageButton" disabled>Average Confidence</button>
+
+    <script>
+    const videoElement = document.getElementById('input_video');
+    const canvasElement = document.getElementById('output_canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const confidenceScoreElement = document.getElementById('confidence_score');
+    const startButton = document.getElementById('startButton');
+    const stopButton = document.getElementById('stopButton');
+    const averageButton = document.getElementById('averageButton');
+
+    let totalConfidence = 0;
+    let frameCount = 0;
+    let running = false;
+    let sessionStartTime = 0;  // To track the session start time
+    let sessionEndTime = 0;    // To track the session end time
+    let intervalId;  // To store the interval ID for clearing later
+    let lastFacePosition = null;
+    let lastLipMovementTime = Date.now();  
+    let lastBlinkTime = Date.now();
+    const lipStillThreshold = 5000;
+    const blinkThreshold = 15;  // 15 blinks per minute threshold
+
+    const LEFT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
+    const RIGHT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
+    const MOUTH_INDICES = [78, 95, 191, 81, 13, 311, 308, 415, 402, 318];
+
+    function startRecording() {
+        running = true;
+        sessionStartTime = Date.now();  // Record the start time
+        startButton.disabled = true;
+        stopButton.disabled = false;
+        averageButton.disabled = true;  
+        totalConfidence = 0;  // Reset total confidence
+        frameCount = 0;  // Reset frame count
+        camera.start();
+
+        // Process one frame every 1 second (1000 ms)
+        intervalId = setInterval(async () => {
+            if (running) {
+                await faceMesh.send({image: videoElement});
+                await hands.send({image: videoElement});
+            }
+        }, 1000);  // 1000 ms = 1 second
+    }
+
+    function stopRecording() {
+        running = false;
+        sessionEndTime = Date.now();  // Record the end time
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        averageButton.disabled = false;  // Enable the Average button after stopping the recording
+        camera.stop();
+
+        // Clear the interval when recording stops
+        clearInterval(intervalId);
+    }
+
+    function calculateAverageConfidence() {
+        if (frameCount > 0) {
+            const averageConfidence = totalConfidence / frameCount;  // Calculate average per frame
+            const sessionDurationInSeconds = (sessionEndTime - sessionStartTime) / 1000;  // Calculate session time in seconds
+            alert(`Average Confidence: ${(averageConfidence * 100).toFixed(2)}% over ${sessionDurationInSeconds.toFixed(2)} seconds.`);
+        } else {
+            alert("No data recorded to calculate average confidence.");
+        }
+    }
+
+    // Add event listeners to buttons
+    startButton.addEventListener('click', startRecording);
+    stopButton.addEventListener('click', stopRecording);
+    averageButton.addEventListener('click', calculateAverageConfidence);
+
+    // Analyze blink rate and apply confidence decrease
+    function analyzeBlinkConfidence(landmarks) {
+        const blinkDuration = Date.now() - lastBlinkTime;
+        if (blinkDuration < 60000 / blinkThreshold) {  
+            return 0.4;  
+        }
+        lastBlinkTime = Date.now();
+        return 1;
+    }
+
+    // Analyze smiling and increase confidence
+    function analyzeSmileConfidence(landmarks) {
+        const mouthWidth = calculateDistance(landmarks, 78, 95);
+        const mouthHeight = calculateDistance(landmarks, 13, 81);
+        const mouthAspectRatio = mouthWidth / mouthHeight;
+        const smileThreshold = 1.5;
+        return mouthAspectRatio > smileThreshold ? 1.2 : 0.6;  
+    }
+
+    // Detect lip movement and apply mouth shut duration logic
+    function analyzeLipConfidence(landmarks) {
+        const lipDistance = calculateDistance(landmarks, 13, 14);
+        if (lipDistance >= 0.02) {
+            lastLipMovementTime = Date.now();
+            return 1;  
+        } else {
+            if (Date.now() - lastLipMovementTime > lipStillThreshold) {
+                return 0.4;  
+            }
+        }
+        return 1;
+    }
+
+    // Detect face movement frequency and decrease confidence if too frequent
+    function analyzeMovementConfidence(landmarks) {
+        if (lastFacePosition) {
+            const currentPosition = getCenterOfLandmarks(landmarks, LEFT_EYE_INDICES.concat(RIGHT_EYE_INDICES));
+            const dx = currentPosition.x - lastFacePosition.x;
+            const dy = currentPosition.y - lastFacePosition.y;
+            const movement = Math.sqrt(dx * dx + dy * dy);
+            lastFacePosition = currentPosition;
+            return movement < 0.05 ? 1 : 0.4; 
+        }
+        lastFacePosition = getCenterOfLandmarks(landmarks, LEFT_EYE_INDICES.concat(RIGHT_EYE_INDICES));
+        return 1;
+    }
+
+    // Analyze head movement and apply confidence adjustments based on yaw, pitch, and roll
+    function analyzeHeadPose(landmarks) {
+        const yaw = Math.abs(landmarks.yaw);
+        const pitch = Math.abs(landmarks.pitch);
+        const roll = Math.abs(landmarks.roll);
+        return (yaw > 10 || pitch > 10 || roll > 10) ? 0.4 : 1;
+    }
+
+    function calculateDistance(landmarks, index1, index2) {
+        const dx = landmarks[index1].x - landmarks[index2].x;
+        const dy = landmarks[index1].y - landmarks[index2].y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function getCenterOfLandmarks(landmarks, indices) {
+        let x = 0, y = 0;
+        indices.forEach(index => {
+            x += landmarks[index].x;
+            y += landmarks[index].y;
+        });
+        return {x: x / indices.length, y: y / indices.length};
+    }
+
+    // Initialize face detection, hand detection, and camera setup
+    const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+    faceMesh.setOptions({
+        maxNumFaces: 1,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+    faceMesh.onResults(onFaceMeshResults);
+
+    const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+    hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+    hands.onResults(onHandsResults);
+
+    const camera = new Camera(videoElement, {
+        onFrame: async () => {
+            if (running) {
+                await faceMesh.send({image: videoElement});
+                await hands.send({image: videoElement});
+            }
+        },
+        width: 640,
+        height: 480
+    });
+
+    function onFaceMeshResults(results) {
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+        
+        if (results.multiFaceLandmarks) {
+            for (const landmarks of results.multiFaceLandmarks) {
+                drawLandmarks(landmarks, 'blue');
+
+                let smileConfidence = analyzeSmileConfidence(landmarks);
+                let movementConfidence = analyzeMovementConfidence(landmarks);
+                let lipConfidence = analyzeLipConfidence(landmarks);
+                let blinkConfidence = analyzeBlinkConfidence(landmarks);
+                let headPoseConfidence = analyzeHeadPose(landmarks);
+
+                // Calculate total confidence for this frame
+                let frameConfidence = (smileConfidence + movementConfidence + lipConfidence + blinkConfidence + headPoseConfidence) / 5;
+                totalConfidence += frameConfidence;
+                frameCount++;  // Increase the frame count
+
+                // Display confidence score
+                confidenceScoreElement.innerText = ((totalConfidence / frameCount) * 100).toFixed(2) + '%';
+
+                // Log individual confidence factors to console
+                console.log('Smile Confidence:', smileConfidence);
+                console.log('Movement Confidence:', movementConfidence);
+                console.log('Lip Confidence:', lipConfidence);
+                console.log('Blink Confidence:', blinkConfidence);
+                console.log('Head Pose Confidence:', headPoseConfidence);
+                console.log('Frame Confidence:', frameConfidence);
+            }
+        }
+    }
+
+    function onHandsResults(results) {
+        if (results.multiHandLandmarks) {
+            for (const landmarks of results.multiHandLandmarks) {
+                drawLandmarks(landmarks, 'red');
+            }
+        }
+    }
+
+    function drawLandmarks(landmarks, color) {
+        canvasCtx.beginPath();
+        canvasCtx.strokeStyle = color;
+        canvasCtx.lineWidth = 1;
+        for (let i = 0; i < landmarks.length; i++) {
+            const x = landmarks[i].x * canvasElement.width;
+            const y = landmarks[i].y * canvasElement.height;
+            canvasCtx.moveTo(x, y);
+            canvasCtx.arc(x, y, 1, 0, 2 * Math.PI);
+        }
+        canvasCtx.stroke();
+    }
+</script>
+
+</body>
+</html>

@@ -9,49 +9,52 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
-        video, canvas {
-            width: 80vw; 
-            height: 60vh;
-            border: 2px solid black;
-        }
-        .confidence {
-            font-size: 20px;
-            margin-top: 20px;
-        }
-    </style>
 </head>
 <body>
     <video id="input_video" autoplay muted playsinline style="display:none;"></video>
     <canvas id="output_canvas"></canvas>
     <div class="confidence">Confidence: <span id="confidence_score">0%</span></div>
+    <button id="startButton">Start</button>
+    <button id="stopButton" disabled>Stop</button>
 
     <script>
         const videoElement = document.getElementById('input_video');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
         const confidenceScoreElement = document.getElementById('confidence_score');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
 
         let totalConfidence = 0;
         let frameCount = 0;
         let lastFacePosition = null;
         let lastLipMovementTime = Date.now();  
         let lastBlinkTime = Date.now();
+        let running = false;  // To track if the system is running or not
         const lipStillThreshold = 5000;
         const blinkThreshold = 15;  // 15 blinks per minute threshold
 
         const LEFT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
         const RIGHT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
         const MOUTH_INDICES = [78, 95, 191, 81, 13, 311, 308, 415, 402, 318];
+
+        function startRecording() {
+            running = true;
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            camera.start();
+        }
+
+        function stopRecording() {
+            running = false;
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            camera.stop();  // Stops the camera feed
+        }
+
+        // Add event listeners to start and stop buttons
+        startButton.addEventListener('click', startRecording);
+        stopButton.addEventListener('click', stopRecording);
 
         // Analyze blink rate and apply confidence decrease
         function analyzeBlinkConfidence(landmarks) {
@@ -144,13 +147,14 @@
 
         const camera = new Camera(videoElement, {
             onFrame: async () => {
-                await faceMesh.send({image: videoElement});
-                await hands.send({image: videoElement});
+                if (running) {
+                    await faceMesh.send({image: videoElement});
+                    await hands.send({image: videoElement});
+                }
             },
             width: 640,
             height: 480
         });
-        camera.start();
 
         function onFaceMeshResults(results) {
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
