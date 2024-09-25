@@ -120,8 +120,8 @@ This project is licensed under the MIT License. Feel free to use, modify, and di
 
 For any questions or suggestions, feel free to reach out:
 
-    Email: your-email@example.com
-    GitHub: your-username
+    Email: shohan.aiubcse@gmail.com
+    GitHub: ShohanMorol
 
 ⭐ Acknowledgments
 
