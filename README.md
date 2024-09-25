@@ -18,7 +18,6 @@ MediaPipe	For detecting facial and hand landmarks
 JavaScript	Handles real-time video processing and rendering
 HTML/CSS	Structure and styling of the user interface
 Canvas API	For rendering the face and hand landmarks on video frames
-📸 Screenshots
 
     Real-Time Face and Hand Detection
 
@@ -47,7 +46,7 @@ Installation Steps:
 
     bash
 
-git clone https://github.com/your-username/confidence-detection.git
+git clone https://github.com/MorolShohan/Confidence-Detection-Using-Mediapipe-Facemash.git
 
 Navigate to the project directory:
 
