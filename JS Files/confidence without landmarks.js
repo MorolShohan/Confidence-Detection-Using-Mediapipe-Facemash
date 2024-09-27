@@ -1,23 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confidence Detection</title>
-    <link rel="stylesheet" href="./style.css"> 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
-</head>
-<body>
-    <video id="input_video" autoplay muted playsinline style="display:none;"></video>
-    <canvas id="output_canvas"></canvas>
-    <div class="confidence">Confidence: <span id="confidence_score">0%</span></div>
-    <button id="startButton">Start</button>
-    <button id="stopButton" disabled>Stop</button>
 
-    <script>
         const videoElement = document.getElementById('input_video');
         const canvasElement = document.getElementById('output_canvas');
         const canvasCtx = canvasElement.getContext('2d');
@@ -211,6 +192,4 @@
             width: 640,
             height: 480
         });
-    </script>
-</body>
-</html>
+   
