@@ -7,7 +7,7 @@
 
                                 Image: Real-time confidence score overlay with face and hand tracking
 
-📍 Project OverView
+📍 Project Overview
 
 This project uses MediaPipe to analyze real-time video data from a webcam, detect face and hand landmarks, and compute a confidence score based on facial expressions, head movement, lip motion, and hand gestures. The final confidence score is displayed on the screen, combining data from face and hand analysis.
 
@@ -68,9 +68,9 @@ Simply open confidence detection.html in your preferred browser:
 
 📐 Project Structure
 
-bash
+bash 
 
-├── index.html        # Main HTML file
+├── confidence detection.html        # Main file
 ├── style.css         # Basic styling for the interface
 ├── README.md         # Project documentation
 
