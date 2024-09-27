@@ -1,4 +1,4 @@
-🎥 Real-Time Confidence Detection using Face & Hand Landmarks 🤖👐
+                                                                🎥 Real-Time Confidence Detection using Face & Hand Landmarks 🤖👐
 
 
 Image: Real-time confidence score overlay with face and hand tracking
@@ -9,7 +9,8 @@ Image: Real-time confidence score overlay with face and hand tracking
 📍 Project OverView
 
 This project uses MediaPipe to analyze real-time video data from a webcam, detect face and hand landmarks, and compute a confidence score based on facial expressions, head movement, lip motion, and hand gestures. The final confidence score is displayed on the screen, combining data from face and hand analysis.
-✨ Features
+
+ ✨ Features
 
     Face Landmark Detection: Detects key facial landmarks such as eyes, mouth, and head orientation.
     Hand Landmark Detection: Tracks the movements of hands and calculates the confidence based on gesture fluidity.
@@ -17,6 +18,7 @@ This project uses MediaPipe to analyze real-time video data from a webcam, detec
     Dynamic Updates: Updates the confidence score frame by frame using webcam input.
 
 🛠️ Technologies Used
+
 Technology	Description
 MediaPipe	For detecting facial and hand landmarks
 JavaScript	Handles real-time video processing and rendering
