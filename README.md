@@ -1,4 +1,4 @@
-                            🎥 Real-Time Confidence Detection using Face & Hand Landmarks 🤖👐
+                            🎥 Real-Time Confidence Detection using Facial & Hand Gesture 🤖👐
 
 
 
@@ -126,5 +126,8 @@ For any questions or suggestions, feel free to reach out:
 
 ⭐ Acknowledgments
 
-    MediaPipe by Google for their face and hand detection APIs.
-    Thanks to the open-source community for making this project possible!
+    SAZZAD HOSSAIN Sir
+    ASSISTANT PROFESSOR, 
+    DEPARTMENT OF COMPUTER SCIENCE 
+    Faculty of Science and Technology
+    American International University-Bangladesh 
