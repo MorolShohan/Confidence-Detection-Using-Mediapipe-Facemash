@@ -71,8 +71,11 @@ Simply open confidence detection.html in your preferred browser:
 bash 
 
 ├── confidence.html        # Main file
+
 ├── style.css         # Basic styling for the interface
+
 ├── confidence.js         # business logic file
+
 ├── README.md         # Project documentation
 
 📊 How it Works
