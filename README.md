@@ -1,4 +1,4 @@
-                                                                🎥 Real-Time Confidence Detection using Face & Hand Landmarks 🤖👐
+                                    🎥 Real-Time Confidence Detection using Face & Hand Landmarks 🤖👐
 
 
 Image: Real-time confidence score overlay with face and hand tracking
