@@ -112,6 +112,7 @@ Feel free to submit issues or contribute to the project by creating a pull reque
 📜 License
 
 This project is licensed under the MIT License. Feel free to use, modify, and distribute this project as per the terms of the license.
+
 💬 Contact
 
 For any questions or suggestions, feel free to reach out:
