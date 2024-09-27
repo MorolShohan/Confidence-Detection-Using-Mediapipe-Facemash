@@ -1,10 +1,10 @@
                                     🎥 Real-Time Confidence Detection using Face & Hand Landmarks 🤖👐
 
 
-Image: Real-time confidence score overlay with face and hand tracking
+
 
 ![photo-collage png](https://github.com/user-attachments/assets/1c62d9fa-01a3-471f-8b3c-b98c553339f1)
-
+                                    Image: Real-time confidence score overlay with face and hand tracking
 
 📍 Project OverView
 
