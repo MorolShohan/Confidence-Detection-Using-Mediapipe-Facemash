@@ -61,18 +61,9 @@ bash
 cd confidence-detection
 
 Open the HTML file
-Simply open index.html in your preferred browser:
+Simply open confidence detection.html in your preferred browser:
 
-    Windows/Mac: Double-click the index.html file to open in the default browser.
-    Command Line:
-
-    bash
-
-        open index.html  # Mac
-        start index.html  # Windows
-
-    Run the Application
-    Click the "Start" button to begin real-time face and hand tracking.
+  
 
 📐 Project Structure
 
@@ -80,7 +71,6 @@ bash
 
 ├── index.html        # Main HTML file
 ├── style.css         # Basic styling for the interface
-├── script.js         # Core JavaScript logic for face & hand detection
 ├── README.md         # Project documentation
 
 📊 How it Works
