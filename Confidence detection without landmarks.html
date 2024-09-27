@@ -31,11 +31,11 @@
         let lastLipMovementTime = Date.now();  
         let lastBlinkTime = Date.now();
         let lastHandPosition = null;
-        let running = false;  // To track if the system is running or not
+        let running = false;
         const lipStillThreshold = 5000;
-        const blinkThreshold = 15;  // 15 blinks per minute threshold
-        const handMovementThresholdMin = 0.2;  // m/s for moderate hand gesture speed
-        const handMovementThresholdMax = 0.5;  // m/s for excessive hand gesture speed
+        const blinkThreshold = 15;
+        const handMovementThresholdMin = 0.2;
+        const handMovementThresholdMax = 0.5;
 
         const LEFT_EYE_INDICES = [33, 160, 158, 133, 153, 144];
         const RIGHT_EYE_INDICES = [362, 385, 387, 263, 373, 380];
@@ -52,14 +52,12 @@
             running = false;
             startButton.disabled = false;
             stopButton.disabled = true;
-            camera.stop();  // Stops the camera feed
+            camera.stop();
         }
 
-        // Add event listeners to start and stop buttons
         startButton.addEventListener('click', startRecording);
         stopButton.addEventListener('click', stopRecording);
 
-        // Analyze blink rate and apply confidence decrease
         function analyzeBlinkConfidence(landmarks) {
             const blinkDuration = Date.now() - lastBlinkTime;
             if (blinkDuration < 60000 / blinkThreshold) {  
@@ -69,7 +67,6 @@
             return 1;
         }
 
-        // Analyze smiling and increase confidence
         function analyzeSmileConfidence(landmarks) {
             const mouthWidth = calculateDistance(landmarks, 78, 95);
             const mouthHeight = calculateDistance(landmarks, 13, 81);
@@ -78,12 +75,11 @@
             return mouthAspectRatio > smileThreshold ? 1.2 : 0.6;  
         }
 
-        // Detect lip movement and apply mouth shut duration logic
         function analyzeLipConfidence(landmarks) {
             const lipDistance = calculateDistance(landmarks, 13, 14);
             if (lipDistance >= 0.02) {
                 lastLipMovementTime = Date.now();
-                return 1;  
+                return 1;
             } else {
                 if (Date.now() - lastLipMovementTime > lipStillThreshold) {
                     return 0.4;  
@@ -92,7 +88,6 @@
             return 1;
         }
 
-        // Detect face movement frequency and decrease confidence if too frequent
         function analyzeMovementConfidence(landmarks) {
             if (lastFacePosition) {
                 const currentPosition = getCenterOfLandmarks(landmarks, LEFT_EYE_INDICES.concat(RIGHT_EYE_INDICES));
@@ -106,7 +101,6 @@
             return 1;
         }
 
-        // Analyze head movement and apply confidence adjustments based on yaw, pitch, and roll
         function analyzeHeadPose(landmarks) {
             const yaw = Math.abs(landmarks.yaw);
             const pitch = Math.abs(landmarks.pitch);
@@ -129,71 +123,58 @@
             return {x: x / indices.length, y: y / indices.length};
         }
 
-        // Analyze hand movement and adjust confidence
         function analyzeHandMovementConfidence(landmarks) {
             if (lastHandPosition) {
-                const currentPosition = getCenterOfLandmarks(landmarks, Array.from({length: landmarks.length}, (_, i) => i)); // All hand landmarks
+                const currentPosition = getCenterOfLandmarks(landmarks, Array.from({length: landmarks.length}, (_, i) => i));
                 const dx = currentPosition.x - lastHandPosition.x;
                 const dy = currentPosition.y - lastHandPosition.y;
-                const movementSpeed = Math.sqrt(dx * dx + dy * dy);  // Calculate hand movement speed
+                const movementSpeed = Math.sqrt(dx * dx + dy * dy);
                 
                 lastHandPosition = currentPosition;
 
-                // Adjust confidence based on movement speed
                 if (movementSpeed >= handMovementThresholdMin && movementSpeed <= handMovementThresholdMax) {
-                    return 1.2;  // Moderate speed increases confidence
+                    return 1.2;
                 } else if (movementSpeed > handMovementThresholdMax) {
-                    return 0.4;  // Excessive speed decreases confidence
+                    return 0.4;
                 }
             }
-
-            // Store initial hand position if not set yet
             lastHandPosition = getCenterOfLandmarks(landmarks, Array.from({length: landmarks.length}, (_, i) => i));
             return 1;
         }
 
         function onFaceMeshResults(results) {
-    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-    
-    if (results.multiFaceLandmarks) {
-        for (const landmarks of results.multiFaceLandmarks) {
-            drawLandmarks(landmarks, 'blue');
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiFaceLandmarks) {
+                for (const landmarks of results.multiFaceLandmarks) {
+                    let smileConfidence = analyzeSmileConfidence(landmarks);
+                    let movementConfidence = analyzeMovementConfidence(landmarks);
+                    let lipConfidence = analyzeLipConfidence(landmarks);
+                    let blinkConfidence = analyzeBlinkConfidence(landmarks);
+                    let headPoseConfidence = analyzeHeadPose(landmarks);
 
-            let smileConfidence = analyzeSmileConfidence(landmarks);
-            let movementConfidence = analyzeMovementConfidence(landmarks);
-            let lipConfidence = analyzeLipConfidence(landmarks);
-            let blinkConfidence = analyzeBlinkConfidence(landmarks);
-            let headPoseConfidence = analyzeHeadPose(landmarks);
+                    let faceFrameConfidence = (smileConfidence + movementConfidence + lipConfidence + blinkConfidence + headPoseConfidence) / 5;
+                    let handConfidence = (totalConfidence / frameCount) || 1;
+                    let finalConfidence = (faceFrameConfidence + handConfidence) / 2;
 
-            // Calculate total face-related confidence
-            let faceFrameConfidence = (smileConfidence + movementConfidence + lipConfidence + blinkConfidence + headPoseConfidence) / 5;
+                    confidenceScoreElement.innerText = (finalConfidence * 100).toFixed(2) + '%';
 
-            // Hand confidence from the previous hand results
-            let handConfidence = (totalConfidence / frameCount) || 1;  // Avoid NaN if no hand data
-            let finalConfidence = (faceFrameConfidence + handConfidence) / 2;  // Combine face and hand confidence
-
-            // Display final confidence score
-            confidenceScoreElement.innerText = (finalConfidence * 100).toFixed(2) + '%';
-
-            // Log confidence factors in the console
-            console.log('Smile Confidence:', smileConfidence);
-            console.log('Movement Confidence:', movementConfidence);
-            console.log('Lip Confidence:', lipConfidence);
-            console.log('Blink Confidence:', blinkConfidence);
-            console.log('Head Pose Confidence:', headPoseConfidence);
-            console.log('Hand Movement Confidence:', handConfidence);
-            console.log('Final Confidence:', finalConfidence);
+                    console.log('Smile Confidence:', smileConfidence);
+                    console.log('Movement Confidence:', movementConfidence);
+                    console.log('Lip Confidence:', lipConfidence);
+                    console.log('Blink Confidence:', blinkConfidence);
+                    console.log('Head Pose Confidence:', headPoseConfidence);
+                    console.log('Hand Movement Confidence:', handConfidence);
+                    console.log('Final Confidence:', finalConfidence);
+                }
+            }
         }
-    }
-}
 
         function onHandsResults(results) {
             if (results.multiHandLandmarks) {
                 for (const landmarks of results.multiHandLandmarks) {
-                    drawLandmarks(landmarks, 'red');
-
-                    let handMovementConfidence = analyzeHandMovementConfidence(landmarks);  // Analyze hand confidence
+                    let handMovementConfidence = analyzeHandMovementConfidence(landmarks);
                     totalConfidence += handMovementConfidence;
                     frameCount++;
 
@@ -202,20 +183,6 @@
             }
         }
 
-        function drawLandmarks(landmarks, color) {
-            canvasCtx.beginPath();
-            canvasCtx.strokeStyle = color;
-            canvasCtx.lineWidth = 1;
-            for (let i = 0; i < landmarks.length; i++) {
-                const x = landmarks[i].x * canvasElement.width;
-                const y = landmarks[i].y * canvasElement.height;
-                canvasCtx.moveTo(x, y);
-                canvasCtx.arc(x, y, 1, 0, 2 * Math.PI);
-            }
-            canvasCtx.stroke();
-        }
-
-        // Initialize face detection, hand detection, and camera setup
         const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
         faceMesh.setOptions({
             maxNumFaces: 1,
